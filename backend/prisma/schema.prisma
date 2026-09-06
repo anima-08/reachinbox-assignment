@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SenderConfig {
+  id                  String   @id @default(cuid())
+  senderEmail         String   @unique
+  slackAccessToken    String?
+  slackWebhookUrl     String?
+  hourlyLimit         Int      @default(200)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model EmailJob {
+  id              String    @id @default(cuid())
+  senderEmail     String
+  recipientEmail  String
+  subject         String
+  body            String    @db.Text
+  status          JobStatus @default(PENDING)
+  scheduledTime   DateTime
+  sentTime        DateTime?
+  error           String?   @db.Text
+  bullJobId       String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+enum JobStatus {
+  PENDING
+  SCHEDULED
+  SENT
+  FAILED
+  DELAYED_RATE_LIMIT
+}
