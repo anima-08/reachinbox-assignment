@@ -1,9 +1,10 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { LogOut, Inbox, Clock, Send } from "lucide-react";
+import { LogOut, Clock, Send, Edit, MoreVertical, LayoutGrid } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
 }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -22,73 +24,91 @@ export default function DashboardLayout({
   if (status === "loading" || !session) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#10B981]"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-white font-sans overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <Inbox className="w-6 h-6 text-blue-600 mr-2" />
-          <span className="text-xl font-bold text-gray-900">ReachInbox</span>
+      <div className="w-64 bg-gray-50/50 border-r border-gray-200 flex flex-col flex-shrink-0">
+        <div className="h-16 flex items-center px-6">
+          <div className="flex items-center gap-2 text-gray-900 font-bold text-xl tracking-tight">
+            <LayoutGrid className="w-5 h-5" />
+            <span>ONE</span>
+          </div>
         </div>
         
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <a
+        <div className="px-4 py-4 flex items-center justify-between group">
+          <div className="flex items-center gap-3 overflow-hidden">
+            {session.user?.image ? (
+              <img src={session.user.image} alt="User" className="w-9 h-9 rounded-full object-cover ring-2 ring-white" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-[#10B981] font-semibold text-sm ring-2 ring-white">
+                {session.user?.name?.charAt(0)}
+              </div>
+            )}
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-semibold text-gray-900 truncate">{session.user?.name}</span>
+              <span className="text-xs text-gray-500 truncate">Workspace Admin</span>
+            </div>
+          </div>
+          <button onClick={() => signOut()} className="text-gray-400 hover:text-gray-600">
+             <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-4 py-2">
+          <Link href="/dashboard/compose">
+            <button className="w-full flex items-center justify-center gap-2 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-lg px-4 py-2.5 text-sm transition-colors shadow-sm">
+              <Edit className="w-4 h-4" />
+              Compose
+            </button>
+          </Link>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          <Link
             href="/dashboard"
-            className="flex items-center px-4 py-2 text-gray-700 bg-gray-100 rounded-md font-medium"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              pathname === "/dashboard" 
+                ? "bg-emerald-50 text-[#10B981]" 
+                : "text-gray-600 hover:bg-gray-100/50 hover:text-gray-900"
+            }`}
           >
-            <Clock className="w-5 h-5 mr-3" />
+            <Clock className={`w-4 h-4 mr-3 ${pathname === "/dashboard" ? "text-[#10B981]" : "text-gray-400"}`} />
             Scheduled
-          </a>
-          <a
+          </Link>
+          <Link
             href="/dashboard/sent"
-            className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-md font-medium"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              pathname === "/dashboard/sent" 
+                ? "bg-emerald-50 text-[#10B981]" 
+                : "text-gray-600 hover:bg-gray-100/50 hover:text-gray-900"
+            }`}
           >
-            <Send className="w-5 h-5 mr-3" />
-            Sent Emails
-          </a>
+            <Send className={`w-4 h-4 mr-3 ${pathname === "/dashboard/sent" ? "text-[#10B981]" : "text-gray-400"}`} />
+            Sent
+          </Link>
         </nav>
         
-        <div className="p-4 border-t border-gray-200">
-          <button
+        <div className="p-4 border-t border-gray-100">
+           <button
             onClick={() => {
               if (session?.user?.email) {
                 window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/slack/auth?senderEmail=${session.user.email}`;
               }
             }}
-            className="flex justify-center items-center w-full px-4 py-2 mb-4 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+            className="flex justify-center items-center w-full px-4 py-2 text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-md transition-colors"
           >
-            Connect Slack
-          </button>
-          <div className="flex items-center mb-4">
-            {session.user?.image ? (
-              <img src={session.user.image} alt="User avatar" className="w-10 h-10 rounded-full" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-                {session.user?.name?.charAt(0)}
-              </div>
-            )}
-            <div className="ml-3 overflow-hidden">
-              <p className="text-sm font-medium text-gray-900 truncate">{session.user?.name}</p>
-              <p className="text-xs text-gray-500 truncate">{session.user?.email}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => signOut()}
-            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
+            Connect Slack Alerts
           </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex overflow-hidden bg-white">
         {children}
       </div>
     </div>

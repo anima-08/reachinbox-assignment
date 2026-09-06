@@ -16,21 +16,20 @@ export default function Home() {
 
   if (status === "loading") {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex h-screen items-center justify-center bg-zinc-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#10B981]"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">ReachInbox</h1>
-        <p className="text-gray-600 mb-8">Email Job Scheduler Assignment</p>
+    <div className="flex h-screen flex-col items-center justify-center bg-zinc-900 font-sans">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl p-10 flex flex-col items-center">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-8 tracking-tight">LogIn</h1>
         
         <button
           onClick={() => signIn("google")}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-6 py-3 text-gray-700 font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="w-full flex items-center justify-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-700 font-medium hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10B981]"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -50,8 +49,35 @@ export default function Home() {
               fill="#EA4335"
             />
           </svg>
-          Sign in with Google
+          Login with Google
         </button>
+
+        <div className="w-full flex items-center justify-center my-6">
+          <div className="h-px bg-gray-200 flex-1"></div>
+          <span className="px-4 text-xs text-gray-400 font-medium tracking-wide uppercase">or sign in with email</span>
+          <div className="h-px bg-gray-200 flex-1"></div>
+        </div>
+
+        <div className="w-full flex flex-col gap-4">
+          <input 
+            type="text" 
+            placeholder="User ID" 
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent text-gray-700 placeholder-gray-400"
+            disabled
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent text-gray-700 placeholder-gray-400"
+            disabled
+          />
+          <button 
+            type="button" 
+            className="w-full bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-lg px-4 py-3 text-sm transition-colors mt-2"
+          >
+            Login
+          </button>
+        </div>
       </div>
     </div>
   );
