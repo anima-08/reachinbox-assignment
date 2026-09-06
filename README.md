@@ -1,61 +1,94 @@
-# ReachInbox - Email Job Scheduler & Dashboard
+# ReachInbox — Email Job Scheduler & Dashboard
 
-This repository contains a full-stack email job scheduler, built to fulfill the ReachInbox Hiring Assignment. It reliably schedules, rate-limits, and dispatches mock emails via Ethereal, with a persistent architecture that survives server restarts.
+> A full-stack email scheduling platform built for the ReachInbox Hiring Assignment. Reliably schedules, rate-limits, and dispatches emails with a persistent, production-grade architecture.
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-outbox--chi.vercel.app-black?style=for-the-badge&logo=vercel)](https://outbox-chi.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+
+---
+
+## 🌐 Live Demo
+
+**[https://outbox-chi.vercel.app](https://outbox-chi.vercel.app)**
+
+> Sign in with any Google account to access the dashboard. The frontend is fully deployed on Vercel. The backend runs locally (see setup below for running the full stack).
+
+---
 
 ## 🚀 Tech Stack
-- **Backend:** Node.js, Express, TypeScript, BullMQ, Redis, PostgreSQL (Prisma), Elasticsearch
-- **Frontend:** Next.js 15 (App Router), Tailwind CSS, NextAuth (Google Login)
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 15 (App Router), Tailwind CSS, NextAuth (Google OAuth) |
+| **Backend** | Node.js, Express, TypeScript, BullMQ |
+| **Database** | PostgreSQL (via Prisma ORM) |
+| **Queue / Cache** | Redis |
+| **Search** | Elasticsearch |
+| **Email** | Nodemailer + Ethereal Mail (mock SMTP) |
+| **Notifications** | Slack OAuth Webhooks |
+| **Deployment** | Vercel (Frontend) |
+
+---
+
+## ✨ Features
+
+### Backend
+- **Smart Scheduling:** BullMQ Delayed Jobs — no cron jobs. Jobs survive server reboots because state lives in Redis & PostgreSQL.
+- **Rate Limiting:** Hourly email limits enforced via atomic Redis counters. Jobs that hit the limit are safely re-queued for the next hour.
+- **Concurrency Control:** BullMQ Worker runs with `concurrency: 5` and a global `limiter` (1 email / 2s) to simulate real SMTP throttling.
+- **Elasticsearch Sync:** Every email event (scheduled, sent, failed) is indexed in Elasticsearch, powering a fast `/search` endpoint.
+- **Slack Integration:** Real OAuth flow stores Incoming Webhooks and fires instant notifications when hourly limits are breached.
+- **Bull Board UI:** Live queue monitoring dashboard at `/admin/queues`.
+
+### Frontend
+- **Google OAuth Login:** Secured with NextAuth.js — one-click sign in.
+- **Compose Modal:** Upload a CSV of leads, set a Start Time, Delay between emails, and Hourly limit. Email addresses are auto-extracted from any column containing `@`.
+- **Live Dashboard Tables:** Separate tabs for Scheduled and Sent emails, with loading states and empty states.
+- **Modern UI:** Clean sidebar layout inspired by Figma designs, with a dark theme.
 
 ---
 
 ## 🏗 Architecture Overview
 
-### 1. How Scheduling Works
-Scheduling does **not** rely on CRON jobs. When a user uploads a CSV of leads in the frontend, they specify a **Start Time** and a **Delay Between Emails**. The frontend dynamically calculates the precise execution time for each individual email (e.g., `StartTime + (index * Delay)`). 
+### How Scheduling Works
+When a user uploads a CSV, they specify a **Start Time** and a **Delay Between Emails**. The frontend calculates the precise dispatch time for each email:
+```
+dispatchTime = StartTime + (index × Delay)
+```
+These timestamps are sent to the backend, which schedules them as **BullMQ Delayed Jobs**. Redis natively tracks the delays and fires each job at exactly the right moment — no polling, no cron.
 
-The backend receives these timestamps and schedules them into **BullMQ as Delayed Jobs**. Redis natively tracks these delays. When the time arrives, BullMQ automatically moves the job from the `delayed` state to the `active` queue.
+### How Persistence Works
+If the backend restarts, **no jobs are lost:**
+- **Queue state** (delayed, waiting, active jobs) lives in a persistent **Redis** container.
+- **Canonical records** are stored in **PostgreSQL**.
 
-### 2. How Persistence on Restart is Handled
-If the Node.js backend crashes or is restarted, **no jobs are lost or restarted from Day 1**. 
-- **Queue State:** BullMQ stores the entire queue (including `delayed`, `waiting`, and `active` jobs) natively in a persistent **Redis** container.
-- **Relational Data:** The canonical record of all `EmailJob`s and their statuses is stored in **PostgreSQL**.
-When the Node.js server reboots, BullMQ automatically re-connects to Redis and resumes evaluating the delayed jobs right where it left off.
+On reboot, BullMQ reconnects to Redis and resumes exactly where it left off.
 
-### 3. Rate Limiting & Concurrency
-- **Concurrency:** The BullMQ Worker is instantiated with a configuration of `{ concurrency: 5 }`, meaning up to 5 emails can be dispatched exactly in parallel.
-- **Delay Between Emails:** The global BullMQ `limiter` is also implemented `(max: 1, duration: 2000)`, enforcing a minimum 2-second global delay between dispatches across the worker to simulate SMTP throttling constraints, alongside the custom delay provided in the frontend UI.
-- **Hourly Limits:** When the worker processes an email, it checks a Redis key (`rate_limit:{senderEmail}:{hour_timestamp}`). 
-  - If the limit (e.g., 200/hr) is exceeded, the worker executes `job.moveToDelayed()` to securely push the job back into the queue delayed until the top of the *next* hour.
-  - The job status in Postgres is updated to `DELAYED_RATE_LIMIT`.
-  - A real-time notification is fired to the user's connected **Slack** workspace.
-
----
-
-## ✨ Features Implemented
-
-### Backend
-- **Scheduler & Persistence:** BullMQ Delayed jobs, no cron, survives server reboots.
-- **Rate Limiting & Concurrency:** Concurrency set to 5. Hourly limits backed by Redis atomic counters. Reschedules jobs securely when limits are hit.
-- **Ethereal Mail:** Integrates with Nodemailer to send real (mocked) emails.
-- **Elasticsearch:** All scheduled, sent, and failed emails are synchronized to an Elasticsearch index on the fly, exposing a fast `/search` endpoint.
-- **Slack OAuth Integration:** Stores Slack Incoming Webhooks via a real OAuth flow and notifies users instantly when their hourly limit is breached.
-- **Bull Board:** A beautiful UI for the Redis queues exposed at `/admin/queues`.
-
-### Frontend
-- **Google OAuth Login:** Secured with NextAuth.
-- **Dashboard Layout:** Beautiful, modern sidebar and tables strictly matching clean Figma aesthetics.
-- **Compose Modal:** Accepts a CSV upload, automatically extracts emails from the rows, and accepts custom parameters for **Delay between emails** and **Hourly limits**.
-- **Real-time Tables:** Tracks "Scheduled" and "Sent" emails with respective loading and empty states.
+### Rate Limiting Flow
+```
+Worker picks up job
+  → Check Redis key: rate_limit:{sender}:{hour}
+  → Under limit?  → Send email ✅
+  → Over limit?   → job.moveToDelayed(nextHour) + Slack notification 🔔
+```
 
 ---
 
-## 🛠 Local Setup & Running
+## 🛠 Local Setup
 
-### 1. Prerequisites
-Ensure you have **Docker** and **Docker Desktop** installed and running on your machine. 
+### Prerequisites
+- **Docker Desktop** (for PostgreSQL, Redis, Elasticsearch)
+- **Node.js 18+**
 
-### 2. Environment Variables
-Create a `.env` in the `backend/` directory:
+### 1. Clone the repo
+```bash
+git clone https://github.com/anima24/outbox.git
+cd outbox
+```
+
+### 2. Backend Environment Variables
+Create `backend/.env`:
 ```env
 PORT=5000
 DATABASE_URL="postgresql://reachinbox_user:reachinbox_password@localhost:5433/reachinbox_db?schema=public"
@@ -69,7 +102,10 @@ SLACK_CLIENT_SECRET=your_slack_client_secret
 SLACK_REDIRECT_URI=http://localhost:5000/api/slack/callback
 ```
 
-Create a `.env.local` in the `frontend/` directory:
+> Get a free Ethereal mail account at [ethereal.email](https://ethereal.email/)
+
+### 3. Frontend Environment Variables
+Create `frontend/.env.local`:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
 GOOGLE_CLIENT_ID=your_google_client_id
@@ -78,34 +114,34 @@ NEXTAUTH_SECRET=your_random_secret_string
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-*Note: You can generate an Ethereal Mail account for free at [Ethereal.email](https://ethereal.email/)*.
-
-### 3. Start Infrastructure (Docker)
-In the root directory of the project, run:
+### 4. Start Infrastructure
 ```bash
 docker-compose up -d
 ```
-This spins up PostgreSQL (Port 5433), Redis (Port 6379), and Elasticsearch (Port 9200).
+Spins up PostgreSQL (port 5433), Redis (port 6379), and Elasticsearch (port 9200).
 
-### 4. Run the Backend
-Open a terminal in the `backend/` folder:
+### 5. Start Backend
 ```bash
+cd backend
 npm install
 npx prisma db push
 npm run dev
 ```
-The API is now running on `http://localhost:5000`. You can view the queue dashboard at `http://localhost:5000/admin/queues`.
+API available at `http://localhost:5000`  
+Bull Board queue UI at `http://localhost:5000/admin/queues`
 
-### 5. Run the Frontend
-Open a terminal in the `frontend/` folder:
+### 6. Start Frontend
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
-The Dashboard is now running on `http://localhost:3000`. Log in with Google and start scheduling!
+Dashboard available at `http://localhost:3000`
 
 ---
 
 ## 📝 Trade-offs & Assumptions
-1. **Frontend CSV Parsing:** Assumed the uploaded CSV is simple. The frontend loops through the CSV cells to extract any string containing an `@` symbol.
-2. **Slack Authentication Flow:** For simplicity in this assignment, the Slack OAuth redirect simply updates the sender config and shows a basic success string rather than redirecting back to the Next.js frontend with complex session states.
+
+1. **Frontend-only CSV parsing:** The app assumes a simple CSV format. Email addresses are extracted by scanning each cell for strings containing `@`.
+2. **Slack OAuth:** The Slack redirect updates the sender config and returns a plain success response, rather than redirecting back to the Next.js frontend with complex session state — acceptable for this assignment scope.
+3. **Mock SMTP:** Ethereal Mail is used so no real emails are sent during evaluation. All sent emails are viewable at [ethereal.email](https://ethereal.email/).
